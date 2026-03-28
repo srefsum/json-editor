@@ -93,12 +93,23 @@ class JSONSchemaController:
     def validate_json(db: Session, schema_id: UUID, content: dict) -> schemas.ValidationResponse:
         db_schema = db.query(models.JSONSchema).filter(models.JSONSchema.id == schema_id).first()
         if not db_schema:
-            return schemas.ValidationResponse(valid=False, errors=["Schema not found"])
+            return schemas.ValidationResponse(
+                valid=False, 
+                errors=[schemas.ValidationError(message="Schema not found")]
+            )
         
         try:
             validate(instance=content, schema=db_schema.schema)
             return schemas.ValidationResponse(valid=True)
         except JSONSchemaValidationError as e:
-            return schemas.ValidationResponse(valid=False, errors=[str(e.message)])
+            path = "/" + "/".join(str(p) for p in e.absolute_path) if e.absolute_path else ""
+            error = schemas.ValidationError(
+                message=e.message,
+                path=path or "root"
+            )
+            return schemas.ValidationResponse(valid=False, errors=[error])
         except Exception as e:
-            return schemas.ValidationResponse(valid=False, errors=[f"Validation error: {str(e)}"])
+            error = schemas.ValidationError(
+                message=f"Validation error: {str(e)}"
+            )
+            return schemas.ValidationResponse(valid=False, errors=[error])

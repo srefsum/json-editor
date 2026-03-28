@@ -44,6 +44,11 @@ class JSONSchemaResponse(JSONSchemaBase):
 class ValidationRequest(BaseModel):
     content: dict[str, Any]
 
+class ValidationError(BaseModel):
+    message: str
+    path: Optional[str] = None
+    line: Optional[int] = None
+
 class ValidationResponse(BaseModel):
     valid: bool
-    errors: Optional[list[str]] = None
+    errors: Optional[list[ValidationError]] = None

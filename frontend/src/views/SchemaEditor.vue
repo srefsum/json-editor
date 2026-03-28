@@ -39,9 +39,30 @@
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">
-              JSON Schema
-            </label>
+            <div class="flex justify-between items-center mb-2">
+              <label class="block text-sm font-medium text-gray-700">
+                JSON Schema
+              </label>
+              <div class="flex items-center space-x-2">
+                <select
+                  v-model="selectedSchemaToInsert"
+                  class="text-sm rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 px-2 py-1 border"
+                >
+                  <option :value="null">Insert from...</option>
+                  <option v-for="schema in availableSchemas" :key="schema.id" :value="schema.id">
+                    {{ schema.name }}
+                  </option>
+                </select>
+                <button
+                  type="button"
+                  @click="insertSchema"
+                  :disabled="!selectedSchemaToInsert"
+                  class="text-sm px-3 py-1 border border-gray-300 rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Insert
+                </button>
+              </div>
+            </div>
             <JsonEditor v-model="schemaContent" :error="schemaError" />
           </div>
 
@@ -71,11 +92,21 @@ import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '../services/api'
 import JsonEditor from '../components/JsonEditor.vue'
+import { useSchemaStore } from '../stores/schemas'
+import { storeToRefs } from 'pinia'
 
 const route = useRoute()
 const router = useRouter()
+const schemaStore = useSchemaStore()
+const { schemas } = storeToRefs(schemaStore)
 
 const isEditing = computed(() => !!route.params.id)
+
+const availableSchemas = computed(() => {
+  return schemas.value.filter(schema => schema.id !== route.params.id)
+})
+
+const selectedSchemaToInsert = ref(null)
 
 const formData = ref({
   name: '',
@@ -87,6 +118,8 @@ const schemaError = ref('')
 const saving = ref(false)
 
 onMounted(async () => {
+  await schemaStore.fetchSchemas()
+  
   if (isEditing.value) {
     try {
       const response = await api.getSchema(route.params.id)
@@ -99,6 +132,33 @@ onMounted(async () => {
     }
   }
 })
+
+const insertSchema = async () => {
+  if (!selectedSchemaToInsert.value) return
+  
+  try {
+    const response = await api.getSchema(selectedSchemaToInsert.value)
+    const insertContent = response.data.schema
+    
+    try {
+      const currentContent = JSON.parse(schemaContent.value)
+      
+      if (typeof currentContent === 'object' && !Array.isArray(currentContent) && 
+          typeof insertContent === 'object' && !Array.isArray(insertContent)) {
+        Object.assign(currentContent, insertContent)
+        schemaContent.value = JSON.stringify(currentContent, null, 2)
+      } else {
+        schemaContent.value = JSON.stringify(insertContent, null, 2)
+      }
+    } catch (parseErr) {
+      schemaContent.value = JSON.stringify(insertContent, null, 2)
+    }
+    
+    selectedSchemaToInsert.value = null
+  } catch (err) {
+    alert('Failed to load schema for insertion')
+  }
+}
 
 const handleSubmit = async () => {
   try {
