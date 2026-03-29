@@ -69,6 +69,13 @@
                       Edit
                     </router-link>
                     <button
+                      type="button"
+                      @click="openCopyModal(document)"
+                      class="text-gray-700 hover:text-gray-900 mr-4"
+                    >
+                      Copy
+                    </button>
+                    <button
                       @click="handleDelete(document.id)"
                       class="text-red-600 hover:text-red-900"
                     >
@@ -82,16 +89,33 @@
         </div>
       </div>
     </div>
+
+    <CopyDocumentModal
+      v-model="copyModalOpen"
+      :default-name="copyDefaultName"
+      :submitting="copySubmitting"
+      @submit="onCopySubmit"
+    />
   </div>
 </template>
 
 <script setup>
-import { onMounted } from 'vue'
+import { onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { useDocumentStore } from '../stores/documents'
+import { useSchemaStore } from '../stores/schemas'
 import { storeToRefs } from 'pinia'
+import CopyDocumentModal from '../components/CopyDocumentModal.vue'
 
+const router = useRouter()
 const documentStore = useDocumentStore()
+const schemaStore = useSchemaStore()
 const { documents, loading, error } = storeToRefs(documentStore)
+
+const copyModalOpen = ref(false)
+const copyDefaultName = ref('')
+const copySourceId = ref(null)
+const copySubmitting = ref(false)
 
 onMounted(() => {
   documentStore.fetchDocuments()
@@ -108,6 +132,27 @@ const handleDelete = async (id) => {
     } catch (err) {
       alert('Failed to delete document')
     }
+  }
+}
+
+const openCopyModal = (document) => {
+  copySourceId.value = document.id
+  copyDefaultName.value = `${document.name} (copy)`
+  copyModalOpen.value = true
+}
+
+const onCopySubmit = async (name) => {
+  if (!copySourceId.value) return
+  copySubmitting.value = true
+  try {
+    const created = await documentStore.copyDocument(copySourceId.value, { name })
+    await schemaStore.fetchSchemas()
+    copyModalOpen.value = false
+    router.push(`/documents/${created.id}`)
+  } catch (err) {
+    alert('Failed to copy document')
+  } finally {
+    copySubmitting.value = false
   }
 }
 </script>

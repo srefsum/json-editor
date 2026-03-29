@@ -14,6 +14,10 @@ class JSONDocumentCreate(JSONDocumentBase):
 class JSONDocumentUpdate(JSONDocumentBase):
     pass
 
+class JSONDocumentCopyRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255)
+    schema_name: Optional[str] = Field(default=None, min_length=1, max_length=255)
+
 class JSONDocumentResponse(JSONDocumentBase):
     id: UUID
     created_at: datetime
@@ -40,6 +44,14 @@ class JSONSchemaResponse(JSONSchemaBase):
 
     class Config:
         from_attributes = True
+
+class ProposeSchemaRequest(BaseModel):
+    sample: Any
+
+
+class ProposedSchemaResponse(BaseModel):
+    schema: dict[str, Any]
+
 
 class ValidationRequest(BaseModel):
     content: dict[str, Any]

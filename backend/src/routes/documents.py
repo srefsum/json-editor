@@ -20,6 +20,26 @@ def get_document(document_id: UUID, db: Session = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
     return document
 
+@router.post(
+    "/{document_id}/copy",
+    response_model=schemas.JSONDocumentResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def copy_document(
+    document_id: UUID,
+    body: schemas.JSONDocumentCopyRequest,
+    db: Session = Depends(get_db),
+):
+    copied = JSONDocumentController.copy_document(
+        db,
+        document_id,
+        body.name,
+        body.schema_name,
+    )
+    if not copied:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
+    return copied
+
 @router.post("/", response_model=schemas.JSONDocumentResponse, status_code=status.HTTP_201_CREATED)
 def create_document(document: schemas.JSONDocumentCreate, db: Session = Depends(get_db)):
     return JSONDocumentController.create(db, document)

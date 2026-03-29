@@ -31,5 +31,16 @@ export const useDocumentStore = defineStore('documents', () => {
     }
   }
 
-  return { documents, loading, error, fetchDocuments, deleteDocument }
+  async function copyDocument(id, payload) {
+    try {
+      const response = await api.copyDocument(id, payload)
+      await fetchDocuments()
+      return response.data
+    } catch (err) {
+      error.value = err.message
+      throw err
+    }
+  }
+
+  return { documents, loading, error, fetchDocuments, deleteDocument, copyDocument }
 })

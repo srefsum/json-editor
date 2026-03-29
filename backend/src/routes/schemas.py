@@ -6,12 +6,17 @@ from uuid import UUID
 from ..db.database import get_db
 from ..models import schemas
 from ..controllers.controllers import JSONSchemaController
+from ..utils.infer_schema import build_proposed_schema
 
 router = APIRouter(prefix="/api/schemas", tags=["schemas"])
 
 @router.get("/", response_model=List[schemas.JSONSchemaResponse])
 def list_schemas(db: Session = Depends(get_db)):
     return JSONSchemaController.get_all(db)
+
+@router.post("/propose", response_model=schemas.ProposedSchemaResponse)
+def propose_schema(request: schemas.ProposeSchemaRequest):
+    return schemas.ProposedSchemaResponse(schema=build_proposed_schema(request.sample))
 
 @router.get("/{schema_id}", response_model=schemas.JSONSchemaResponse)
 def get_schema(schema_id: UUID, db: Session = Depends(get_db)):

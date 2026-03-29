@@ -1,3 +1,5 @@
+import copy as copy_lib
+
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 from typing import List, Optional
@@ -47,6 +49,47 @@ class JSONDocumentController:
             db.commit()
             return True
         return False
+
+    @staticmethod
+    def copy_document(
+        db: Session,
+        document_id: UUID,
+        new_name: str,
+        new_schema_name: Optional[str] = None,
+    ) -> Optional[models.JSONDocument]:
+        source = db.query(models.JSONDocument).filter(models.JSONDocument.id == document_id).first()
+        if not source:
+            return None
+
+        new_schema_id = None
+        if source.schema_id:
+            orig_schema = (
+                db.query(models.JSONSchema).filter(models.JSONSchema.id == source.schema_id).first()
+            )
+            if orig_schema:
+                schema_title = (
+                    new_schema_name
+                    if new_schema_name is not None
+                    else f"{orig_schema.name} (copy)"
+                )
+                db_schema = models.JSONSchema(
+                    name=schema_title,
+                    schema=copy_lib.deepcopy(orig_schema.schema),
+                    description=orig_schema.description,
+                )
+                db.add(db_schema)
+                db.flush()
+                new_schema_id = db_schema.id
+
+        new_doc = models.JSONDocument(
+            name=new_name,
+            content=copy_lib.deepcopy(source.content),
+            schema_id=new_schema_id,
+        )
+        db.add(new_doc)
+        db.commit()
+        db.refresh(new_doc)
+        return new_doc
 
 class JSONSchemaController:
     @staticmethod

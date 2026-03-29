@@ -6,6 +6,14 @@
       </router-link>
       <div class="flex space-x-3">
         <button
+          v-if="isEditing"
+          type="button"
+          @click="openCopyModal"
+          class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+        >
+          Copy as new…
+        </button>
+        <button
           v-if="formData.schema_id"
           type="button"
           @click="validateAgainstSchema"
@@ -104,8 +112,16 @@
           </div>
         </div>
         <div class="px-4 py-5 sm:p-6">
-          <div v-if="!formData.schema_id" class="text-center py-12 text-gray-500">
-            Select a schema to view and edit it
+          <div v-if="!formData.schema_id" class="text-center py-12 px-4 text-gray-500 space-y-4">
+            <p>Select a schema to view and edit it, or generate one from the document JSON.</p>
+            <button
+              type="button"
+              @click="proposeSchemaFromDocument"
+              :disabled="proposingSchema"
+              class="inline-flex items-center justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {{ proposingSchema ? 'Proposing…' : 'Propose schema from document' }}
+            </button>
           </div>
           <JsonEditor v-else v-model="schemaContent" :error="schemaError" @update:modelValue="onSchemaEdit" />
         </div>
@@ -161,6 +177,13 @@
         </div>
       </div>
     </div>
+
+    <CopyDocumentModal
+      v-model="copyModalOpen"
+      :default-name="copyDefaultName"
+      :submitting="copySubmitting"
+      @submit="onCopySubmit"
+    />
   </div>
 </template>
 
@@ -169,6 +192,7 @@ import { ref, onMounted, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '../services/api'
 import JsonEditor from '../components/JsonEditor.vue'
+import CopyDocumentModal from '../components/CopyDocumentModal.vue'
 import { useSchemaStore } from '../stores/schemas'
 import { useDocumentStore } from '../stores/documents'
 import { storeToRefs } from 'pinia'
@@ -206,6 +230,62 @@ const schemaError = ref('')
 const originalSchemaContent = ref('')
 const schemaModified = ref(false)
 const savingSchema = ref(false)
+
+const copyModalOpen = ref(false)
+const copyDefaultName = ref('')
+const copySubmitting = ref(false)
+const proposingSchema = ref(false)
+
+const openCopyModal = () => {
+  copyDefaultName.value = formData.value.name ? `${formData.value.name} (copy)` : 'Untitled (copy)'
+  copyModalOpen.value = true
+}
+
+const onCopySubmit = async (name) => {
+  if (!route.params.id) return
+  copySubmitting.value = true
+  try {
+    const created = await documentStore.copyDocument(route.params.id, { name })
+    await schemaStore.fetchSchemas()
+    copyModalOpen.value = false
+    router.push(`/documents/${created.id}`)
+  } catch (err) {
+    alert('Failed to copy document')
+  } finally {
+    copySubmitting.value = false
+  }
+}
+
+const proposeSchemaFromDocument = async () => {
+  if (formData.value.schema_id) return
+  let sample
+  try {
+    sample = JSON.parse(jsonContent.value)
+  } catch {
+    alert('Fix the document JSON syntax before proposing a schema.')
+    return
+  }
+  proposingSchema.value = true
+  schemaError.value = ''
+  try {
+    const { data } = await api.proposeSchemaFromSample({ sample })
+    const docName = formData.value.name?.trim() || 'Document'
+    const created = await api.createSchema({
+      name: `${docName} (proposed schema)`,
+      description: 'Generated from the current document JSON',
+      schema: data.schema
+    })
+    await schemaStore.fetchSchemas()
+    formData.value.schema_id = created.data.id
+    await loadSchema(created.data.id)
+    validationResult.value = null
+    debouncedValidation()
+  } catch (err) {
+    alert('Failed to propose schema')
+  } finally {
+    proposingSchema.value = false
+  }
+}
 
 watch(jsonContent, () => {
   if (formData.value.schema_id) {

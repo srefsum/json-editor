@@ -29,9 +29,17 @@ export default {
   deleteDocument(id) {
     return apiClient.delete(`/api/documents/${id}`)
   },
+
+  copyDocument(id, data) {
+    return apiClient.post(`/api/documents/${id}/copy`, data)
+  },
   
   getSchemas() {
     return apiClient.get('/api/schemas')
+  },
+
+  proposeSchemaFromSample(body) {
+    return apiClient.post('/api/schemas/propose', body)
   },
   
   getSchema(id) {
