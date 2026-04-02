@@ -120,21 +120,24 @@ const handleScroll = (event) => {
   position: relative;
   width: 100%;
 }
+</style>
 
-.editor-wrapper {
+<style>
+/* Light theme (default) */
+.json-editor-container .editor-wrapper {
   display: flex;
   position: relative;
   border: 1px solid #d1d5db;
   border-radius: 6px;
   overflow: hidden;
-  background-color: #1e1e1e;
+  background-color: #ffffff;
 }
 
-.line-numbers {
+.json-editor-container .line-numbers {
   flex-shrink: 0;
   width: 50px;
-  background-color: #252526;
-  color: #858585;
+  background-color: #f3f4f6;
+  color: #6b7280;
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
   font-size: 14px;
   line-height: 1.5;
@@ -142,20 +145,20 @@ const handleScroll = (event) => {
   text-align: right;
   overflow: hidden;
   user-select: none;
-  border-right: 1px solid #3e3e42;
+  border-right: 1px solid #e5e7eb;
 }
 
-.line-number {
+.json-editor-container .line-number {
   height: 21px;
 }
 
-.line-number.line-error {
-  color: #ef4444;
+.json-editor-container .line-number.line-error {
+  color: #dc2626;
   font-weight: bold;
-  background-color: rgba(239, 68, 68, 0.1);
+  background-color: rgba(239, 68, 68, 0.12);
 }
 
-.json-editor {
+.json-editor-container .json-editor {
   flex: 1;
   min-height: 400px;
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
@@ -163,40 +166,40 @@ const handleScroll = (event) => {
   line-height: 1.5;
   padding: 16px;
   border: none;
-  background-color: #1e1e1e;
-  color: #d4d4d4;
+  background-color: #ffffff;
+  color: #111827;
   resize: vertical;
   outline: none;
   transition: all 0.2s;
 }
 
-.json-editor.with-line-numbers {
+.json-editor-container .json-editor.with-line-numbers {
   border-left: none;
 }
 
-.editor-wrapper:focus-within {
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+.json-editor-container .editor-wrapper:focus-within {
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
 }
 
-.editor-wrapper.has-error {
+.json-editor-container .editor-wrapper.has-error {
   border-color: #ef4444;
 }
 
-.editor-wrapper.has-error:focus-within {
-  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+.json-editor-container .editor-wrapper.has-error:focus-within {
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
 }
 
-.json-editor.error {
-  background-color: #2a1a1a;
+.json-editor-container .json-editor.error {
+  background-color: #fef2f2;
 }
 
-.error-message {
+.json-editor-container .error-message {
   margin-top: 8px;
   font-size: 14px;
-  color: #ef4444;
+  color: #dc2626;
 }
 
-.validation-errors {
+.json-editor-container .validation-errors {
   margin-top: 12px;
   border: 1px solid #fecaca;
   border-radius: 6px;
@@ -204,19 +207,19 @@ const handleScroll = (event) => {
   padding: 12px;
 }
 
-.validation-error-item {
+.json-editor-container .validation-error-item {
   display: flex;
   flex-direction: column;
   padding: 8px 0;
   border-bottom: 1px solid #fecaca;
 }
 
-.validation-error-item:last-child {
+.json-editor-container .validation-error-item:last-child {
   border-bottom: none;
   padding-bottom: 0;
 }
 
-.error-path {
+.json-editor-container .error-path {
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
   font-size: 13px;
   color: #991b1b;
@@ -224,8 +227,63 @@ const handleScroll = (event) => {
   margin-bottom: 4px;
 }
 
-.error-text {
+.json-editor-container .error-text {
   font-size: 14px;
   color: #7f1d1d;
+}
+
+/* Dark theme */
+html.dark .json-editor-container .editor-wrapper {
+  background-color: #1e1e1e;
+  border-color: #3e3e42;
+}
+
+html.dark .json-editor-container .line-numbers {
+  background-color: #252526;
+  color: #858585;
+  border-right-color: #3e3e42;
+}
+
+html.dark .json-editor-container .line-number.line-error {
+  color: #ef4444;
+  background-color: rgba(239, 68, 68, 0.1);
+}
+
+html.dark .json-editor-container .json-editor {
+  background-color: #1e1e1e;
+  color: #d4d4d4;
+}
+
+html.dark .json-editor-container .editor-wrapper:focus-within {
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+html.dark .json-editor-container .editor-wrapper.has-error:focus-within {
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+html.dark .json-editor-container .json-editor.error {
+  background-color: #2a1a1a;
+}
+
+html.dark .json-editor-container .error-message {
+  color: #f87171;
+}
+
+html.dark .json-editor-container .validation-errors {
+  border-color: #7f1d1d;
+  background-color: rgba(127, 29, 29, 0.35);
+}
+
+html.dark .json-editor-container .validation-error-item {
+  border-bottom-color: rgba(248, 113, 113, 0.25);
+}
+
+html.dark .json-editor-container .error-path {
+  color: #fecaca;
+}
+
+html.dark .json-editor-container .error-text {
+  color: #fca5a5;
 }
 </style>

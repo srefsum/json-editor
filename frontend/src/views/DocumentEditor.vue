@@ -1,7 +1,7 @@
 <template>
   <div class="px-4 sm:px-6 lg:px-8">
     <div class="mb-6 flex justify-between items-center">
-      <router-link to="/" class="text-indigo-600 hover:text-indigo-900">
+      <router-link to="/" class="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300">
         ← Back to Documents
       </router-link>
       <div class="flex space-x-3">
@@ -9,7 +9,7 @@
           v-if="isEditing"
           type="button"
           @click="openCopyModal"
-          class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          class="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 shadow-sm text-sm font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-gray-900 focus:ring-indigo-500"
         >
           Copy as new…
         </button>
@@ -17,7 +17,7 @@
           v-if="formData.schema_id"
           type="button"
           @click="validateAgainstSchema"
-          class="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+          class="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 shadow-sm text-sm font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-gray-900 focus:ring-indigo-500"
         >
           Validate
         </button>
@@ -25,23 +25,23 @@
           type="button"
           @click="handleSubmit"
           :disabled="saving || !!jsonError || !!schemaError"
-          class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-gray-900 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {{ saving ? 'Saving...' : 'Save' }}
         </button>
       </div>
     </div>
 
-    <div class="bg-white shadow sm:rounded-lg mb-6">
-      <div class="px-4 py-4 sm:px-6 border-b border-gray-200">
-        <h2 class="text-2xl font-semibold text-gray-900">
+    <div class="bg-white dark:bg-gray-800 shadow sm:rounded-lg mb-6">
+      <div class="px-4 py-4 sm:px-6 border-b border-gray-200 dark:border-gray-700">
+        <h2 class="text-2xl font-semibold text-gray-900 dark:text-gray-100">
           {{ isEditing ? 'Edit Document' : 'New Document' }}
         </h2>
       </div>
       <div class="px-4 py-4 sm:p-6 space-y-4">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label for="name" class="block text-sm font-medium text-gray-700">
+            <label for="name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
               Document Name
             </label>
             <input
@@ -49,19 +49,19 @@
               type="text"
               id="name"
               required
-              class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border"
+              class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border"
             />
           </div>
 
           <div>
-            <label for="schema" class="block text-sm font-medium text-gray-700">
+            <label for="schema" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
               Schema
             </label>
             <select
               v-model="formData.schema_id"
               id="schema"
               @change="onSchemaChange"
-              class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border"
+              class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2 border"
             >
               <option :value="null">No schema</option>
               <option v-for="schema in schemas" :key="schema.id" :value="schema.id">
@@ -71,17 +71,17 @@
           </div>
         </div>
 
-        <div v-if="validationResult" class="rounded-md p-4" :class="validationResult.valid ? 'bg-green-50' : 'bg-red-50'">
+        <div v-if="validationResult" class="rounded-md p-4" :class="validationResult.valid ? 'bg-green-50 dark:bg-green-900/20' : 'bg-red-50 dark:bg-red-900/20'">
           <div class="flex">
             <div class="flex-shrink-0">
               <span v-if="validationResult.valid" class="text-green-400">✓</span>
               <span v-else class="text-red-400">✗</span>
             </div>
             <div class="ml-3">
-              <h3 class="text-sm font-medium" :class="validationResult.valid ? 'text-green-800' : 'text-red-800'">
+              <h3 class="text-sm font-medium" :class="validationResult.valid ? 'text-green-800 dark:text-green-200' : 'text-red-800 dark:text-red-200'">
                 {{ validationResult.valid ? 'Valid JSON' : 'Validation Errors' }}
               </h3>
-              <div v-if="!validationResult.valid && validationResult.errors" class="mt-2 text-sm" :class="validationResult.valid ? 'text-green-700' : 'text-red-700'">
+              <div v-if="!validationResult.valid && validationResult.errors" class="mt-2 text-sm" :class="validationResult.valid ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'">
                 <ul class="list-disc list-inside space-y-1">
                   <li v-for="(error, index) in validationResult.errors" :key="index">
                     <span v-if="error.path" class="font-mono">{{ error.path }}:</span>
@@ -96,29 +96,29 @@
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <div class="bg-white shadow sm:rounded-lg">
-        <div class="px-4 py-3 border-b border-gray-200 bg-gray-50">
+      <div class="bg-white dark:bg-gray-800 shadow sm:rounded-lg">
+        <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
           <div class="flex justify-between items-center">
-            <h3 class="text-lg font-medium text-gray-900">Schema</h3>
+            <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">Schema</h3>
             <button
               v-if="formData.schema_id && schemaModified"
               type="button"
               @click="saveSchemaChanges"
               :disabled="savingSchema || !!schemaError"
-              class="text-sm px-3 py-1 border border-transparent rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              class="text-sm px-3 py-1 border border-transparent rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-gray-800 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {{ savingSchema ? 'Saving...' : 'Save Schema' }}
             </button>
           </div>
         </div>
         <div class="px-4 py-5 sm:p-6">
-          <div v-if="!formData.schema_id" class="text-center py-12 px-4 text-gray-500 space-y-4">
+          <div v-if="!formData.schema_id" class="text-center py-12 px-4 text-gray-500 dark:text-gray-400 space-y-4">
             <p>Select a schema to view and edit it, or generate one from the document JSON.</p>
             <button
               type="button"
               @click="proposeSchemaFromDocument"
               :disabled="proposingSchema"
-              class="inline-flex items-center justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              class="inline-flex items-center justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {{ proposingSchema ? 'Proposing…' : 'Propose schema from document' }}
             </button>
@@ -127,26 +127,26 @@
         </div>
       </div>
 
-      <div class="bg-white shadow sm:rounded-lg">
-        <div class="px-4 py-3 border-b border-gray-200 bg-gray-50">
+      <div class="bg-white dark:bg-gray-800 shadow sm:rounded-lg">
+        <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
           <div class="flex justify-between items-center">
             <div class="flex items-center space-x-3">
-              <h3 class="text-lg font-medium text-gray-900">JSON Document</h3>
+              <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">JSON Document</h3>
               <span 
                 v-if="formData.schema_id && validating" 
-                class="text-xs text-gray-500"
+                class="text-xs text-gray-500 dark:text-gray-400"
               >
                 Validating...
               </span>
               <span 
                 v-else-if="formData.schema_id && validationResult && validationResult.valid" 
-                class="text-xs text-green-600 font-medium"
+                class="text-xs text-green-600 dark:text-green-400 font-medium"
               >
                 ✓ Valid
               </span>
               <span 
                 v-else-if="formData.schema_id && validationResult && !validationResult.valid" 
-                class="text-xs text-red-600 font-medium"
+                class="text-xs text-red-600 dark:text-red-400 font-medium"
               >
                 ✗ Invalid
               </span>
@@ -154,7 +154,7 @@
             <div class="flex items-center space-x-2">
               <select
                 v-model="selectedDocumentToInsert"
-                class="text-sm rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 px-2 py-1 border"
+                class="text-sm rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 px-2 py-1 border"
               >
                 <option :value="null">Insert from...</option>
                 <option v-for="doc in availableDocuments" :key="doc.id" :value="doc.id">
@@ -165,7 +165,7 @@
                 type="button"
                 @click="insertDocument"
                 :disabled="!selectedDocumentToInsert"
-                class="text-sm px-3 py-1 border border-gray-300 rounded-md shadow-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                class="text-sm px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-gray-800 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Insert
               </button>
