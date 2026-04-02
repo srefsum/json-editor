@@ -1,25 +1,53 @@
 <template>
   <div class="json-editor-container">
+    <div
+      class="editor-toolbar flex flex-wrap items-center gap-2 mb-2 px-1"
+      role="toolbar"
+      aria-label="JSON folding"
+    >
+      <button
+        type="button"
+        class="rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-1 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 focus:ring-offset-white dark:focus:ring-offset-gray-900"
+        @click="runFoldAll"
+      >
+        Fold all
+      </button>
+      <button
+        type="button"
+        class="rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-1 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 focus:ring-offset-white dark:focus:ring-offset-gray-900"
+        @click="runUnfoldAll"
+      >
+        Unfold all
+      </button>
+      <span class="text-xs text-gray-500 dark:text-gray-400">Fold at depth</span>
+      <input
+        v-model.number="foldDepthInput"
+        type="number"
+        min="1"
+        max="16"
+        class="w-14 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-1 py-0.5 text-xs text-gray-900 dark:text-white"
+      />
+      <button
+        type="button"
+        class="rounded border border-indigo-600 bg-indigo-600 px-2 py-1 text-xs font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 focus:ring-offset-white dark:focus:ring-offset-gray-900"
+        @click="runFoldAtDepth"
+      >
+        Apply
+      </button>
+    </div>
+
     <div class="editor-wrapper" :class="{ 'has-error': error || (validationErrors && validationErrors.length > 0) }">
-      <div class="line-numbers" v-if="showLineNumbers">
-        <div 
-          v-for="(line, index) in lineCount" 
-          :key="index"
-          class="line-number"
-          :class="{ 'line-error': errorLines.has(index + 1) }"
-        >
-          {{ index + 1 }}
-        </div>
-      </div>
-      <textarea
-        ref="textareaRef"
+      <Codemirror
         v-model="localValue"
-        @input="handleInput"
-        @scroll="handleScroll"
-        class="json-editor"
-        :class="{ 'error': error, 'with-line-numbers': showLineNumbers }"
-        spellcheck="false"
-      ></textarea>
+        placeholder=""
+        :style="{ minHeight: '400px' }"
+        :autofocus="false"
+        :indent-with-tab="true"
+        :tab-size="2"
+        :extensions="codemirrorExtensions"
+        @ready="onCmReady"
+        @update:model-value="onCmUpdate"
+      />
     </div>
     <div v-if="error" class="error-message">
       {{ error }}
@@ -34,7 +62,23 @@
 </template>
 
 <script setup>
-import { ref, watch, computed } from 'vue'
+import { ref, watch, shallowRef } from 'vue'
+import { storeToRefs } from 'pinia'
+import { Codemirror } from 'vue-codemirror'
+import { json } from '@codemirror/lang-json'
+import {
+  syntaxTree,
+  foldGutter,
+  foldKeymap,
+  foldEffect,
+  foldAll,
+  unfoldAll
+} from '@codemirror/language'
+import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
+import { EditorState, Compartment, RangeSetBuilder } from '@codemirror/state'
+import { keymap, lineNumbers, EditorView, Decoration, ViewPlugin } from '@codemirror/view'
+import { oneDark } from '@codemirror/theme-one-dark'
+import { useThemeStore } from '../stores/theme'
 
 const props = defineProps({
   modelValue: {
@@ -58,60 +102,220 @@ const props = defineProps({
 const emit = defineEmits(['update:modelValue'])
 
 const localValue = ref(props.modelValue)
-const textareaRef = ref(null)
+const editorView = shallowRef(null)
+const foldDepthInput = ref(1)
+const themeStore = useThemeStore()
+const { isDark } = storeToRefs(themeStore)
 
-const lineCount = computed(() => {
-  return (localValue.value.match(/\n/g) || []).length + 1
-})
+const themeCompartment = new Compartment()
+const errorCompartment = new Compartment()
 
-const errorLines = computed(() => {
-  const lines = new Set()
-  if (props.validationErrors) {
-    for (const err of props.validationErrors) {
-      if (err.path) {
-        const line = findLineForPath(err.path)
-        if (line) lines.add(line)
-      }
-    }
+function objectArrayDepth(node) {
+  let d = 0
+  let n = node
+  while (n) {
+    const name = n.type.name
+    if (name === 'Object' || name === 'Array') d++
+    n = n.parent
   }
-  return lines
-})
+  return d
+}
 
-const findLineForPath = (path) => {
+/**
+ * Fold regions whose Object/Array node has structural depth `targetDepth`
+ * (root value is depth 1, one level nested is depth 2, etc.).
+ */
+function collectRangesAtDepth(state, targetDepth) {
+  const ranges = []
+  const tree = syntaxTree(state)
+  try {
+    tree.iterate({
+      enter(nodeRef) {
+        const name = nodeRef.type.name
+        if (name !== 'Object' && name !== 'Array') return
+        const node = nodeRef.node ?? tree.resolveInner(nodeRef.from + 1, 1)
+        if (!node) return
+        if (objectArrayDepth(node) === targetDepth) {
+          ranges.push({ from: nodeRef.from, to: nodeRef.to })
+        }
+      }
+    })
+  } catch {
+    /* incomplete parse */
+  }
+  return ranges
+}
+
+function findLineForPath(text, path) {
   if (!path || path === 'root') return null
-  
-  const pathParts = path.split('/').filter(p => p)
+
+  const pathParts = path.split('/').filter((p) => p)
   if (pathParts.length === 0) return null
-  
-  const lines = localValue.value.split('\n')
+
+  const lines = text.split('\n')
   let searchKey = pathParts[pathParts.length - 1]
-  
+
   if (searchKey.startsWith('[') && searchKey.endsWith(']')) {
     searchKey = searchKey.slice(1, -1)
   }
-  
+
   for (let i = 0; i < lines.length; i++) {
     if (lines[i].includes(`"${searchKey}"`) || lines[i].includes(`'${searchKey}'`)) {
       return i + 1
     }
   }
-  
+
   return null
 }
 
-watch(() => props.modelValue, (newValue) => {
-  localValue.value = newValue
-})
-
-const handleInput = (event) => {
-  emit('update:modelValue', event.target.value)
+function computeErrorLineNumbers(text, validationErrors) {
+  const lines = new Set()
+  if (validationErrors && validationErrors.length) {
+    for (const err of validationErrors) {
+      if (err.path) {
+        const ln = findLineForPath(text, err.path)
+        if (ln) lines.add(ln)
+      }
+    }
+  }
+  return lines
 }
 
-const handleScroll = (event) => {
-  const lineNumbers = event.target.parentElement.querySelector('.line-numbers')
-  if (lineNumbers) {
-    lineNumbers.scrollTop = event.target.scrollTop
+function errorLinesExtension(lineNumbersSet) {
+  return ViewPlugin.define(
+    (view) => ({
+      decorations: computeLineDecorations(view.state, lineNumbersSet)
+    }),
+    {
+      decorations: (v) => v.decorations
+    }
+  )
+}
+
+function computeLineDecorations(state, lineNumbersSet) {
+  const errorLineMark = Decoration.line({ attributes: { class: 'cm-json-error-line' } })
+  const b = new RangeSetBuilder()
+  const sorted = [...lineNumbersSet].sort((a, z) => a - z)
+  for (const lineNo of sorted) {
+    if (lineNo < 1) continue
+    try {
+      const line = state.doc.line(lineNo)
+      b.add(line.from, line.from, errorLineMark)
+    } catch {
+      /* invalid line */
+    }
   }
+  return b.finish()
+}
+
+const baseTheme = EditorView.theme({
+  '&': {
+    minHeight: '400px',
+    fontSize: '14px'
+  },
+  '.cm-scroller': {
+    fontFamily: "'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace",
+    overflow: 'auto'
+  },
+  '.cm-json-error-line': {
+    backgroundColor: 'rgba(239, 68, 68, 0.12)'
+  },
+  '&.cm-focused': {
+    outline: 'none'
+  }
+})
+
+const darkExtraTheme = EditorView.theme({
+  '.cm-json-error-line': {
+    backgroundColor: 'rgba(239, 68, 68, 0.18)'
+  }
+})
+
+function initialThemeExtension() {
+  return isDark.value ? [oneDark, darkExtraTheme] : [baseTheme]
+}
+
+function buildStaticExtensions() {
+  const core = [
+    EditorState.tabSize.of(2),
+    json(),
+    foldGutter(),
+    history(),
+    keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab, ...foldKeymap]),
+    themeCompartment.of(initialThemeExtension()),
+    errorCompartment.of(errorLinesExtension(new Set()))
+  ]
+  if (props.showLineNumbers) {
+    core.splice(2, 0, lineNumbers())
+  }
+  return core
+}
+
+const codemirrorExtensions = shallowRef(buildStaticExtensions())
+
+watch(
+  () => props.showLineNumbers,
+  () => {
+    codemirrorExtensions.value = buildStaticExtensions()
+  }
+)
+
+watch(
+  () => props.modelValue,
+  (v) => {
+    if (v !== localValue.value) localValue.value = v
+  }
+)
+
+function applyThemeAndErrors(view) {
+  const lines = computeErrorLineNumbers(props.modelValue, props.validationErrors)
+  view.dispatch({
+    effects: [
+      errorCompartment.reconfigure(errorLinesExtension(lines)),
+      themeCompartment.reconfigure(initialThemeExtension())
+    ]
+  })
+}
+
+watch(
+  () => [props.modelValue, props.validationErrors, isDark.value],
+  () => {
+    const view = editorView.value
+    if (view) applyThemeAndErrors(view)
+  },
+  { deep: true }
+)
+
+function onCmReady(payload) {
+  editorView.value = payload.view
+  applyThemeAndErrors(payload.view)
+}
+
+function onCmUpdate(val) {
+  emit('update:modelValue', val)
+}
+
+function runFoldAll() {
+  const view = editorView.value
+  if (view) foldAll(view)
+}
+
+function runUnfoldAll() {
+  const view = editorView.value
+  if (view) unfoldAll(view)
+}
+
+function runFoldAtDepth() {
+  const view = editorView.value
+  if (!view) return
+  let d = Number(foldDepthInput.value)
+  if (!Number.isFinite(d) || d < 1) d = 1
+  if (d > 16) d = 16
+  const ranges = collectRangesAtDepth(view.state, d)
+  if (ranges.length === 0) return
+  view.dispatch({
+    effects: ranges.map((r) => foldEffect.of(r))
+  })
 }
 </script>
 
@@ -123,9 +327,7 @@ const handleScroll = (event) => {
 </style>
 
 <style>
-/* Light theme (default) */
 .json-editor-container .editor-wrapper {
-  display: flex;
   position: relative;
   border: 1px solid #d1d5db;
   border-radius: 6px;
@@ -133,48 +335,8 @@ const handleScroll = (event) => {
   background-color: #ffffff;
 }
 
-.json-editor-container .line-numbers {
-  flex-shrink: 0;
-  width: 50px;
-  background-color: #f3f4f6;
-  color: #6b7280;
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
-  font-size: 14px;
-  line-height: 1.5;
-  padding: 16px 8px;
-  text-align: right;
-  overflow: hidden;
-  user-select: none;
-  border-right: 1px solid #e5e7eb;
-}
-
-.json-editor-container .line-number {
-  height: 21px;
-}
-
-.json-editor-container .line-number.line-error {
-  color: #dc2626;
-  font-weight: bold;
-  background-color: rgba(239, 68, 68, 0.12);
-}
-
-.json-editor-container .json-editor {
-  flex: 1;
+.json-editor-container .editor-wrapper .cm-editor {
   min-height: 400px;
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
-  font-size: 14px;
-  line-height: 1.5;
-  padding: 16px;
-  border: none;
-  background-color: #ffffff;
-  color: #111827;
-  resize: vertical;
-  outline: none;
-  transition: all 0.2s;
-}
-
-.json-editor-container .json-editor.with-line-numbers {
-  border-left: none;
 }
 
 .json-editor-container .editor-wrapper:focus-within {
@@ -187,10 +349,6 @@ const handleScroll = (event) => {
 
 .json-editor-container .editor-wrapper.has-error:focus-within {
   box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
-}
-
-.json-editor-container .json-editor.error {
-  background-color: #fef2f2;
 }
 
 .json-editor-container .error-message {
@@ -232,26 +390,9 @@ const handleScroll = (event) => {
   color: #7f1d1d;
 }
 
-/* Dark theme */
 html.dark .json-editor-container .editor-wrapper {
   background-color: #1e1e1e;
   border-color: #3e3e42;
-}
-
-html.dark .json-editor-container .line-numbers {
-  background-color: #252526;
-  color: #858585;
-  border-right-color: #3e3e42;
-}
-
-html.dark .json-editor-container .line-number.line-error {
-  color: #ef4444;
-  background-color: rgba(239, 68, 68, 0.1);
-}
-
-html.dark .json-editor-container .json-editor {
-  background-color: #1e1e1e;
-  color: #d4d4d4;
 }
 
 html.dark .json-editor-container .editor-wrapper:focus-within {
@@ -260,10 +401,6 @@ html.dark .json-editor-container .editor-wrapper:focus-within {
 
 html.dark .json-editor-container .editor-wrapper.has-error:focus-within {
   box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
-}
-
-html.dark .json-editor-container .json-editor.error {
-  background-color: #2a1a1a;
 }
 
 html.dark .json-editor-container .error-message {
